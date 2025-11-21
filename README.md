@@ -84,4 +84,4 @@ Freeda/
 
 ---
 
-*Développé avec ❤️ par l'équipe Freeda*
+*Développé avec ❤️ par l'équipe SOCADY*
