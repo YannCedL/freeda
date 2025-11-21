@@ -100,7 +100,16 @@ async def startup():
                 mistral_api_key=MISTRAL_API_KEY,
                 chroma_persist_dir=str(CHROMA_DB_DIR)
             )
+            
+            # Charger les documents si la base est vide
             stats = services.rag_service.get_stats()
+            if stats['total_documents'] == 0:
+                knowledge_file = Path("data/knowledge_base/faq_documents.json")
+                if knowledge_file.exists():
+                    logger.info(f"Loading initial knowledge from {knowledge_file}...")
+                    await services.rag_service.load_from_file(str(knowledge_file))
+                    stats = services.rag_service.get_stats() # Update stats
+            
             logger.info(f"RAG service enabled: {stats['total_documents']} documents loaded")
         except Exception as e:
             logger.warning(f"RAG service initialization failed: {e}")

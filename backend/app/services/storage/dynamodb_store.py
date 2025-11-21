@@ -316,6 +316,87 @@ class DynamoDBStorage(TicketStorage):
             logger.exception(f"Error checking ticket existence in DynamoDB: {e}")
             return False
 
+    async def add_message(self, ticket_id: str, message: dict) -> None:
+        """Ajouter un message à un ticket dans DynamoDB."""
+        try:
+            # Convertir en Decimal
+            message_item = float_to_decimal(message)
+            
+            # Si la liste messages n'existe pas, on la crée avec le message
+            # Sinon on ajoute à la fin
+            await self._retry_operation(
+                self.table.update_item,
+                Key={"ticket_id": ticket_id},
+                UpdateExpression="SET messages = list_append(if_not_exists(messages, :empty_list), :message)",
+                ExpressionAttributeValues={
+                    ":message": [message_item],
+                    ":empty_list": []
+                }
+            )
+            logger.info(f"Message added to ticket {ticket_id} in DynamoDB")
+            
+        except Exception as e:
+            logger.exception(f"Error adding message to DynamoDB: {e}")
+            raise HTTPException(status_code=500, detail="Failed to add message")
+
+    async def update_ticket(self, ticket_id: str, updates: dict) -> dict:
+        """Mettre à jour un ticket avec un dictionnaire de champs."""
+        try:
+            # Convertir en Decimal
+            updates_decimal = float_to_decimal(updates)
+            
+            update_expression = "SET"
+            expression_names = {}
+            expression_values = {}
+            
+            for i, (key, value) in enumerate(updates_decimal.items()):
+                # Ignorer ticket_id car c'est la clé
+                if key == "ticket_id":
+                    continue
+                    
+                attr_name = f"#{key}"
+                attr_value = f":{key}"
+                
+                update_expression += f" {attr_name} = {attr_value},"
+                expression_names[attr_name] = key
+                expression_values[attr_value] = value
+            
+            # Enlever la dernière virgule
+            update_expression = update_expression.rstrip(",")
+            
+            if not expression_names:
+                return await self.get_ticket(ticket_id)
+                
+            response = await self._retry_operation(
+                self.table.update_item,
+                Key={"ticket_id": ticket_id},
+                UpdateExpression=update_expression,
+                ExpressionAttributeNames=expression_names,
+                ExpressionAttributeValues=expression_values,
+                ReturnValues="ALL_NEW"
+            )
+            
+            updated_ticket = decimal_to_float(response["Attributes"])
+            logger.info(f"Ticket updated in DynamoDB: {ticket_id}")
+            return updated_ticket
+            
+        except Exception as e:
+            logger.exception(f"Error updating ticket in DynamoDB: {e}")
+            raise HTTPException(status_code=500, detail="Failed to update ticket")
+
+    async def delete_ticket(self, ticket_id: str) -> None:
+        """Supprimer un ticket de DynamoDB."""
+        try:
+            await self._retry_operation(
+                self.table.delete_item,
+                Key={"ticket_id": ticket_id}
+            )
+            logger.info(f"Ticket deleted from DynamoDB: {ticket_id}")
+            
+        except Exception as e:
+            logger.exception(f"Error deleting ticket from DynamoDB: {e}")
+            raise HTTPException(status_code=500, detail="Failed to delete ticket")
+
     async def health_check(self) -> bool:
         """Vérifier que DynamoDB est accessible."""
         try:

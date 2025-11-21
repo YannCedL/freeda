@@ -27,7 +27,10 @@ FORMAT DE REPONSE ATTENDU (JSON UNIQUEMENT) :
 }}
 
 CRITERES STRICTS :
-- Sentiment : 'neutre' est INTERDIT si le client exprime un problème. Utiliser 'negatif' pour tout problème, 'positif' pour un remerciement.
+- Sentiment : 
+    * 'negatif' : Problème technique, panne, plainte, insatisfaction, résiliation.
+    * 'neutre' : Demande d'information, question simple, procédure administrative sans plainte.
+    * 'positif' : Remerciement, satisfaction, confirmation de résolution.
 - Summary : Ne jamais mettre "Demande de support". Etre précis (ex: "Panne fibre depuis 3 jours", "Erreur facture 49€").
 - Churn Risk : > 80 si mention de 'résiliation', 'concurrent', 'trop cher', 'départ'.
 - Urgence : 'haute' si panne totale, blocage bloquant ou risque de churn élevé.

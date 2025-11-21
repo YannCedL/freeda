@@ -17,13 +17,15 @@ import uuid
 
 # Import des services
 from app.services.storage.interface import get_storage
-from app.core.config import settings, SYSTEM_PROMPT, ENABLE_RAG
+from app.core.config import SYSTEM_PROMPT, ENABLE_RAG
 from app.core.container import services
 from app.core.utils import normalize_agent_signature
 from app.core.websocket import manager
 from app.core.ratelimit import check_ticket_rate_limit, check_message_rate_limit
-from app.models.schemas import TicketCreate, MessageCreate
+from app.models.schemas import TicketCreate, MessageCreate, StatusUpdate
 from app.services.ai.smart_reply import smart_reply
+
+
 
 router = APIRouter(prefix="/public/tickets", tags=["Public - Tickets"])
 
@@ -279,8 +281,10 @@ async def add_message_public(
         "type": "client"
     }
     
-    # Ajouter le message au ticket
-    await storage.add_message(ticket_id, message)
+    # Ajouter le message au ticket en memoire
+    if "messages" not in ticket:
+        ticket["messages"] = []
+    ticket["messages"].append(message)
     
     # Analyser le nouveau message et mettre a jour le ticket
     if services.analytics_service:
@@ -293,20 +297,23 @@ async def add_message_public(
                 role = "assistant" if msg["type"] == "assistant" else "user"
                 messages_history.append({"role": role, "content": msg["content"]})
             
-            # Ajouter le nouveau message
-            messages_history.append({"role": "user", "content": content})
+            # Le message est deja dans l'historique maintenant
             
             analytics_result = await services.analytics_service.analyze_ticket(messages_history)
             
             # Mettre a jour les analytics du ticket
             ticket["analytics"] = analytics_result
-            await storage.save_ticket(ticket)
             
             # Ajouter le sentiment au message individuel (optionnel, pour compatibilite)
             message["sentiment"] = analytics_result.get("sentiment", "neutre")
             
         except Exception as e:
             print(f"Erreur analyse message: {e}")
+            
+    # Sauvegarder le ticket avec le nouveau message et les analytics
+    await storage.save_ticket(ticket)
+            
+
         
     # Generer une reponse IA
     assistant_message = None
@@ -436,4 +443,47 @@ async def get_ticket_status_public(ticket_id: str):
         }),
         "last_update": ticket.get("updated_at", ticket["created_at"]),
         "message_count": len(ticket.get("messages", []))
+    }
+
+
+@router.patch("/{ticket_id}/status", response_model=dict)
+async def update_ticket_status_public(
+    ticket_id: str,
+    update: StatusUpdate
+):
+    """
+    Mettre à jour le statut d'un ticket (PUBLIC)
+    
+    Permet au client de fermer son ticket.
+    Seul le statut 'fermé' est autorisé publiquement.
+    """
+    
+    if update.status != "fermé":
+        raise HTTPException(
+            status_code=400, 
+            detail="Seule la fermeture du ticket est autorisée publiquement"
+        )
+        
+    ticket = await storage.get_ticket(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket non trouvé")
+        
+    # Si déjà fermé, rien à faire
+    if ticket["status"] == "fermé":
+        return {"message": "Ticket déjà fermé", "status": "fermé"}
+        
+    # Mettre à jour le statut
+    closed_at = datetime.utcnow().isoformat()
+    await storage.update_ticket_status(ticket_id, "fermé", closed_at)
+    
+    # Broadcast via WebSocket
+    await manager.broadcast(ticket_id, {
+        "type": "status_updated", 
+        "status": "fermé"
+    })
+    
+    return {
+        "message": "Ticket fermé avec succès",
+        "status": "fermé",
+        "closed_at": closed_at
     }

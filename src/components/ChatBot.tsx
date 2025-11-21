@@ -104,8 +104,26 @@ export default function ChatBot({ onBack }: ChatBotProps) {
           isAnalyzing: false
         };
         setMessages(prev => {
-          // Éviter les doublons
+          // 1. Si le message existe déjà par ID (cas normal), on ne fait rien
           if (prev.some(m => m.id === msg.id)) return prev;
+
+          // 2. Si c'est un message utilisateur, on cherche un doublon optimiste récent
+          // pour remplacer le message temporaire par le message confirmé du serveur
+          if (newMsg.isUser) {
+            const now = new Date();
+            // On cherche le dernier message utilisateur identique ajouté récemment (< 10s)
+            // On parcourt en partant de la fin pour trouver le plus récent
+            for (let i = prev.length - 1; i >= 0; i--) {
+              const m = prev[i];
+              if (m.isUser && m.text === newMsg.text && (now.getTime() - m.timestamp.getTime() < 10000)) {
+                // On a trouvé le message optimiste correspondant
+                const newMessages = [...prev];
+                newMessages[i] = newMsg; // Remplacer par la version serveur (avec le bon ID)
+                return newMessages;
+              }
+            }
+          }
+
           return [...prev, newMsg];
         });
       } else if (data.type === 'ticket_snapshot') {
@@ -149,8 +167,8 @@ export default function ChatBot({ onBack }: ChatBotProps) {
     const trimmedMessage = message.trim();
     if (!trimmedMessage) return;
 
-    // Ne pas ajouter le message localement, le WebSocket le fera
-    // addMessage(trimmedMessage, true); // SUPPRIMÉ pour éviter les doublons
+    // Ajouter le message localement immédiatement (Optimistic UI)
+    addMessage(trimmedMessage, true);
     setInputText('');
     setShowQuickButtons(false);
 
@@ -162,7 +180,7 @@ export default function ChatBot({ onBack }: ChatBotProps) {
 
       if (!ticketId) {
         // Créer un nouveau ticket avec le premier message
-        response = await fetch(`${API_BASE_URL}/tickets`, {
+        response = await fetch(`${API_BASE_URL}/public/tickets`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -182,7 +200,7 @@ export default function ChatBot({ onBack }: ChatBotProps) {
         setMessages(prev => prev.filter(m => m.id !== placeholderId));
       } else {
         // Envoyer un message sur un ticket existant
-        response = await fetch(`${API_BASE_URL}/tickets/${ticketId}/messages`, {
+        response = await fetch(`${API_BASE_URL}/public/tickets/${ticketId}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -246,7 +264,7 @@ export default function ChatBot({ onBack }: ChatBotProps) {
     if (!ticketId) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/public/tickets/${ticketId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json'

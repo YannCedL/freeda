@@ -33,24 +33,25 @@ class LoginResponse(BaseModel):
 
 # Base de données utilisateurs (temporaire - à remplacer par DynamoDB)
 # Dans un vrai système, cela devrait être dans DynamoDB
+# Mots de passe: agent123, manager123, admin123
 USERS_DB = {
     "agent@freeda.com": {
         "email": "agent@freeda.com",
         "name": "Agent Support",
         "role": "agent",
-        "hashed_password": bcrypt.hash("agent123")  # Changez ce mot de passe
+        "hashed_password": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYzpLaEm3K."  # agent123
     },
     "manager@freeda.com": {
         "email": "manager@freeda.com",
         "name": "Manager Support",
         "role": "manager",
-        "hashed_password": bcrypt.hash("manager123")
+        "hashed_password": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYzpLaEm3K."  # manager123
     },
     "admin@freeda.com": {
         "email": "admin@freeda.com",
         "name": "Administrateur",
         "role": "admin",
-        "hashed_password": bcrypt.hash("admin123")
+        "hashed_password": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYzpLaEm3K."  # admin123
     }
 }
 

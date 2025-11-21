@@ -138,6 +138,40 @@ class JSONStorage(TicketStorage):
         tickets = await self._load_all()
         return ticket_id in tickets
 
+    async def add_message(self, ticket_id: str, message: dict) -> None:
+        """Ajouter un message à un ticket."""
+        tickets = await self._load_all()
+        if ticket_id not in tickets:
+            raise HTTPException(status_code=404, detail="Ticket non trouvé")
+        
+        if "messages" not in tickets[ticket_id]:
+            tickets[ticket_id]["messages"] = []
+            
+        tickets[ticket_id]["messages"].append(message)
+        await self._save_all(tickets)
+        logger.info(f"Message added to ticket {ticket_id}")
+
+    async def update_ticket(self, ticket_id: str, updates: dict) -> dict:
+        """Mettre à jour un ticket."""
+        tickets = await self._load_all()
+        if ticket_id not in tickets:
+            raise HTTPException(status_code=404, detail="Ticket non trouvé")
+
+        ticket = tickets[ticket_id]
+        ticket.update(updates)
+        
+        await self._save_all(tickets)
+        logger.info(f"Ticket updated: {ticket_id}")
+        return ticket
+
+    async def delete_ticket(self, ticket_id: str) -> None:
+        """Supprimer un ticket."""
+        tickets = await self._load_all()
+        if ticket_id in tickets:
+            del tickets[ticket_id]
+            await self._save_all(tickets)
+            logger.info(f"Ticket deleted: {ticket_id}")
+
     async def close(self) -> None:
         """Fermer les connexions (rien à faire pour JSON)."""
         logger.info("JSONStorage closed")
