@@ -1,5 +1,6 @@
 import logging
 import httpx
+from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -104,7 +105,8 @@ async def startup():
             # Charger les documents si la base est vide
             stats = services.rag_service.get_stats()
             if stats['total_documents'] == 0:
-                knowledge_file = Path("data/knowledge_base/faq_documents.json")
+                from app.core.config import BASE_DIR
+                knowledge_file = BASE_DIR / "data" / "knowledge_base" / "faq_documents.json"
                 if knowledge_file.exists():
                     logger.info(f"Loading initial knowledge from {knowledge_file}...")
                     await services.rag_service.load_from_file(str(knowledge_file))
