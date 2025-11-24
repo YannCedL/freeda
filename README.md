@@ -126,3 +126,12 @@ Freeda/
 ├── public/                  # Fichiers publics
 └── ...
 ```
+
+## 🔐 Sécurité
+
+- **Client** : Accès public limité, protection anti-spam (à venir)
+- **Admin** : Authentification JWT stricte, rôles (Agent, Manager, Admin)
+- **Données** : Stockage sécurisé sur DynamoDB, chiffrement au repos
+
+
+
